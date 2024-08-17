@@ -1,25 +1,32 @@
 #
 # Created on:  Thu Aug 15 2024
-# By:  Lukas Mettler (lukas.mettler@student.kit.edu)
+# By:  Lukas Mettler
 #
 
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 from matplotlib import animation
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+np.random.seed(137)
 
 
 #####################################
 
-dims = (100, 100)
-frames = 200
-interval = 100
+dims = (100, 250)
+frames = 300
+interval = 80
 
-prob_lightning=1e-6
-prob_planting=1e-4
+#prob_lightning=1e-6
+#prob_planting=1e-4
+#initial_tree_prob = 0.6
+
+# equilibrium  parameters
+prob_lightning=1e-3
+prob_planting=1e-1
+initial_tree_prob = 0.0
 
 
-initial_tree_prob = 0.6
 initial_grid = np.random.choice(a=[1, 0], p=[initial_tree_prob, 1-initial_tree_prob], size=dims)
 
 #initial fires
@@ -73,8 +80,7 @@ def step(grid, prob_lightning=0.02, prob_planting=0.02):
     return elements
 
 
-
-def analyzeforest(grid):
+def analyzeForest(grid):
     n_tot = np.array(grid.shape).prod()
     n_empty=  100. * (grid== 0).astype(float).flatten().sum() / n_tot
     n_tree =  100. * (grid== 1).astype(float).flatten().sum() / n_tot
@@ -83,13 +89,25 @@ def analyzeforest(grid):
     return {'empty': n_empty, 'fire': n_fire, 'tree': n_tree}
 
 
+def histogramDimensions(grid):
+    counts = []
+    for dim in range(grid.ndim):
+        dim_counts = []
+        for celltype in [0, 1, 2]:
+            count = (grid == 100. * celltype).astype(float).sum(axis=dim) / grid.shape[dim]
+            dim_counts.append(count)
+        counts.append(dim_counts)
+    return counts
+
+
+
 ######################################################################################
 ######################################################################################
 ######################################################################################
 
 current_grid = initial_grid.copy()
 
-fig, (ax0, ax1) = plt.subplots(2, 1, figsize=(8,10), gridspec_kw={'height_ratios': [2, 1]}, tight_layout=True)
+fig, (ax0, ax1) = plt.subplots(2, 1, figsize=(10,8), gridspec_kw={'height_ratios': [2, 1]}, tight_layout=True)
 
 colors = ['gray', 'green', 'red']
 cmap = mcolors.ListedColormap(colors)
@@ -99,9 +117,22 @@ norm = mcolors.BoundaryNorm(range(0,4), cmap.N)
 container = ax0.imshow(current_grid, animated=True, cmap=cmap, norm=norm)
 ax0.set_xticks([])
 ax0.set_yticks([])
+ax0.set_title(f'$dim={dims};\; P(\\text{{grow}})={prob_planting};\; P(\\text{{lightning}})={prob_lightning}$')
+
+#divider = make_axes_locatable(ax0)
+#ax_histx = divider.append_axes("top", 0.4, pad=0.1, sharex=ax0)
+#ax_histy = divider.append_axes("right", 0.4, pad=0.1, sharey=ax0)
+#ax_histx.xaxis.set_tick_params(labelbottom=False)
+#ax_histy.yaxis.set_tick_params(labelleft=False)
+
+#dim_counts = histogramDimensions(current_grid)
+#for count_x, count_y, color in zip(dim_counts[0], dim_counts[1], colors):
+#    ax_histx.plot(range(len(count_x)), count_x, color=color, drawstyle='steps-mid')
+#    ax_histy.plot(count_y, range(len(count_y)), color=color, drawstyle='steps-mid')
 
 
-state_dict = analyzeforest(current_grid)
+
+state_dict = analyzeForest(current_grid)
 nums = [list(state_dict.values())]
 labels = list(state_dict.keys())
 colors_stack = ['gray', 'red', 'green']
@@ -120,13 +151,14 @@ artists = [[container, *plot, text]]
 
 for i in range(1, frames):
     current_grid = step(current_grid, prob_lightning=prob_lightning, prob_planting=prob_planting)
-    state_dict = analyzeforest(current_grid)
+    state_dict = analyzeForest(current_grid)
     nums.append(list(state_dict.values()))
 
     # plots
     container = ax0.imshow(current_grid, animated=True, cmap=cmap, norm=norm)
     plot = ax1.stackplot(range(i+1), np.transpose(nums), colors=colors_stack)
     text = ax1.text(*text_position, f'current step: {i}')
+    
     artists.append([container, *plot, text])
 
 
