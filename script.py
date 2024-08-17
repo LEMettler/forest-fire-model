@@ -1,6 +1,6 @@
 #
-# Created on:  Thu Aug 15 2024
-# By:  Lukas Mettler
+# Created on: Thu Aug 15 2024
+# By: Lukas Mettler
 #
 # Docstrings generated with claude.ai
 #
@@ -18,11 +18,14 @@ from matplotlib import animation
 # global parameters
 
 dims = (100, 250)
-frames = 300
-interval = 80
-prob_lightning=1e-3
-prob_planting=1e-1
+frames = 200
+interval = 40
+
+prob_lightning = 1e-3
+prob_planting = 8e-2
+
 initial_tree_prob = 0.0
+
 store_file = False
 file_name = 'model.gif'
 
@@ -60,18 +63,20 @@ def promptUser():
     """
     global frames, interval, prob_lightning, prob_planting, initial_tree_prob, store_file, file_name, custom_seed, seed
 
-    frames = get_input("Number of frames", int, 300)
-    interval = get_input("Frame interval", int, 80)
-    prob_lightning = get_input("Probability of lightning", float, 1e-3)
-    prob_planting = get_input("Enter the probability of planting", float, 1e-1)
-    initial_tree_prob = get_input("Initial tree probability", float, 0.0)
-    store_file = bool(get_input('Store output? (0/1)', int, 0))
-    if store_file:
-        file_name = get_input("File name", str, 'model.gif')
-    custom_seed = bool(get_input('Custom seed? (0/1)', int, 0))
-    if custom_seed:
-        seed = get_input("Custom seed", int, 137)
-        
+    if get_input('Custom parameters? (0/1)', int, 0):
+            
+        frames = get_input("Number of frames", int, frames)
+        interval = get_input("Frame interval", int, interval)
+        prob_lightning = get_input("Probability of lightning", float, prob_lightning)
+        prob_planting = get_input("Enter the probability of planting", float, prob_planting)
+        initial_tree_prob = get_input("Initial tree probability", float, initial_tree_prob)
+        store_file = bool(get_input('Store output? (0/1)', int, store_file))
+        if store_file:
+            file_name = get_input("File name", str, file_name)
+        custom_seed = bool(get_input('Custom seed? (0/1)', int, custom_seed))
+        if custom_seed:
+            seed = get_input("Custom seed", int, seed)
+            
     printState()
 
 
@@ -79,7 +84,6 @@ def printState():
     """
     Print the current state of the simulation parameters.
     """
-    sys.stdout.flush()
     print(f"Frames: {frames}")
     print(f"Interval: {interval}")
     print(f"Probability of Lightning: {prob_lightning}")
@@ -216,8 +220,9 @@ timeline = [current_grid]
 
 fig, (ax0, ax1) = plt.subplots(2, 1, figsize=(10,8), gridspec_kw={'height_ratios': [2, 1]}, tight_layout=True)
 
-colors = ['gray', 'green', 'red']
-colors_stack = ['gray', 'red', 'green']
+colors = ['dimgray', 'darkgreen', 'red']
+colors_stack = ['dimgray', 'red', 'darkgreen']
+
 cmap = mcolors.ListedColormap(colors)
 norm = mcolors.BoundaryNorm(range(0,4), cmap.N)
 
