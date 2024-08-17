@@ -1,6 +1,6 @@
 #
 # Created on: Thu Aug 15 2024
-# By: Lukas Mettler
+# By: Lukas Mettler (https://github.com/LEMettler)
 #
 # Docstrings generated with claude.ai
 #
@@ -19,7 +19,7 @@ from matplotlib import animation
 
 dims = (100, 250)
 frames = 200
-interval = 40
+interval = 70
 
 prob_lightning = 1e-3
 prob_planting = 8e-2
