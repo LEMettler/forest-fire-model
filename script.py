@@ -26,6 +26,9 @@ prob_planting = 8e-2
 
 initial_tree_prob = 0.0
 
+simple_model = False
+skew = 0.3
+
 store_file = False
 file_name = 'model.gif'
 
@@ -61,7 +64,7 @@ def promptUser():
     """
     Prompt the user for simulation parameters and update global variables.
     """
-    global frames, interval, prob_lightning, prob_planting, initial_tree_prob, store_file, file_name, custom_seed, seed
+    global frames, interval, prob_lightning, prob_planting, initial_tree_prob, store_file, file_name, custom_seed, seed, simple_model, skew
 
     if get_input('Custom parameters? (0/1)', int, 0):
             
@@ -70,6 +73,13 @@ def promptUser():
         prob_lightning = get_input("Probability of lightning", float, prob_lightning)
         prob_planting = get_input("Enter the probability of planting", float, prob_planting)
         initial_tree_prob = get_input("Initial tree probability", float, initial_tree_prob)
+        
+        simple_model = bool(get_input('Simple model? (0/1)', int, simple_model))
+        if simple_model:
+            skew = 1.0
+        else:
+            skew = get_input("Skew on likelihood of trees catching fire, ~drought [0, 1]", float, skew)
+
         store_file = bool(get_input('Store output? (0/1)', int, store_file))
         if store_file:
             file_name = get_input("File name", str, file_name)
@@ -89,6 +99,7 @@ def printState():
     print(f"Probability of Lightning: {prob_lightning}")
     print(f"Probability of Planting: {prob_planting}")
     print(f"Initial Tree Probability: {initial_tree_prob}")
+    print(f"Skew: {skew}")
     if store_file:
         print(f"File Name: {file_name}")
     print(f"Seed: {seed}")
@@ -115,9 +126,10 @@ def neigbors2fire(fire_mask):
         fire_mask (numpy.ndarray): A boolean mask of cells currently on fire.
 
     Returns:
-        numpy.ndarray: A boolean mask of cells neighboring fires.
+        numpy.ndarray: A *integer* grid of how many fires neigbor the cells.
     """
-    to_fire_mask = np.zeros_like(fire_mask).astype(bool)
+    # element (i,j) contains the number of neigbors to cell (i,j) on fire
+    to_fire_mask = np.zeros_like(fire_mask).astype(int)
 
     for dim in range(len(fire_mask.shape)):
         tfm = fire_mask.copy()
@@ -125,12 +137,13 @@ def neigbors2fire(fire_mask):
             shifted_mask = np.roll(tfm, shift=shift_direction, axis=dim)
             shifted_mask.swapaxes(0, dim)[clear_index] = False
 
-            to_fire_mask = np.logical_or(to_fire_mask, shifted_mask)
+            # increase count of neigboring fires
+            to_fire_mask += shifted_mask.astype(int)
 
     return to_fire_mask
 
 
-def step(grid, prob_lightning=0.02, prob_planting=0.02):
+def step(grid, prob_lightning=0.02, prob_planting=0.02, skew=0.2):
     """
     Perform one step of the forest fire simulation.
 
@@ -138,6 +151,7 @@ def step(grid, prob_lightning=0.02, prob_planting=0.02):
         grid (numpy.ndarray): The current state of the grid.
         prob_lightning (float): Probability of lightning striking a tree.
         prob_planting (float): Probability of a new tree growing in an empty cell.
+        skew (float): Skew on the likelihood of setting a neigboring tree on fire. (E.g. drought)
 
     Returns:
         numpy.ndarray: The updated grid after one simulation step.
@@ -148,9 +162,25 @@ def step(grid, prob_lightning=0.02, prob_planting=0.02):
     tree_mask = grid == 1
     fire_mask = grid == 2
 
-    next_to_fire_mask = neigbors2fire(fire_mask)
-    trees_next_to_fire_mask = np.logical_and(tree_mask, next_to_fire_mask)
-    elements[trees_next_to_fire_mask] = 2
+
+    next_to_fire_counts = neigbors2fire(fire_mask)
+
+    if skew < 1.0: 
+        trees_next_to_fire_mask = np.logical_and(tree_mask, next_to_fire_counts > 0)
+        next_to_fire_counts[~trees_next_to_fire_mask] = 0
+
+        fire_prob = next_to_fire_counts / (2 * grid.ndim) # normalize to [0,1]
+        # generate uniformly distributed random values for each tree with at least one fire next to it
+        random_vals = -skew + np.random.rand(*fire_prob.shape)
+        # based on the prob and random value decide wether the tree starts burning
+        becomes_fire_mask = random_vals < fire_prob
+
+    # simple model: one neigbor on fire gurantes to light a tree
+    else:
+        becomes_fire_mask = trees_next_to_fire_mask = np.logical_and(tree_mask, next_to_fire_counts > 0)
+
+
+    elements[becomes_fire_mask] = 2
     
     elements[fire_mask] = 0
 
@@ -230,7 +260,14 @@ text_position = (10, 90)
 
 ax0.set_xticks([])
 ax0.set_yticks([])
-ax0.set_title(f'$dim={dims};\; P(\\text{{grow}})={prob_planting};\; P(\\text{{lightning}})={prob_lightning}$')
+
+if simple_model:
+    model_title = f'simple (drought $ 100 \\% $)'
+else: 
+    model_title = f'drought ${100*skew}\\%$'
+title = f'$dim={dims};\; P(\\text{{grow}})={prob_planting};\; P(\\text{{lightning}})={prob_lightning};\;$model$=${model_title}'
+
+ax0.set_title(title)
 
 state_dict = analyzeForest(current_grid)
 nums = [list(state_dict.values())]
@@ -254,7 +291,7 @@ artists = [[container, *plot, text]]
 # Main loop
 for i in range(1, frames):
     # state progression
-    current_grid = step(current_grid, prob_lightning=prob_lightning, prob_planting=prob_planting)
+    current_grid = step(current_grid, prob_lightning=prob_lightning, prob_planting=prob_planting, skew=skew)
     state_dict = analyzeForest(current_grid)
     nums.append(list(state_dict.values()))
 
