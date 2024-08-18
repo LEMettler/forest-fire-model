@@ -115,9 +115,10 @@ def neigbors2fire(fire_mask):
         fire_mask (numpy.ndarray): A boolean mask of cells currently on fire.
 
     Returns:
-        numpy.ndarray: A boolean mask of cells neighboring fires.
+        numpy.ndarray: A *integer* grid of how many fires neigbor the cells.
     """
-    to_fire_mask = np.zeros_like(fire_mask).astype(bool)
+    # element (i,j) contains the number of neigbors to cell (i,j) on fire
+    to_fire_mask = np.zeros_like(fire_mask).astype(int)
 
     for dim in range(len(fire_mask.shape)):
         tfm = fire_mask.copy()
@@ -125,7 +126,8 @@ def neigbors2fire(fire_mask):
             shifted_mask = np.roll(tfm, shift=shift_direction, axis=dim)
             shifted_mask.swapaxes(0, dim)[clear_index] = False
 
-            to_fire_mask = np.logical_or(to_fire_mask, shifted_mask)
+            # increase count of neigboring fires
+            to_fire_mask += shifted_mask.astype(int)
 
     return to_fire_mask
 
@@ -148,9 +150,18 @@ def step(grid, prob_lightning=0.02, prob_planting=0.02):
     tree_mask = grid == 1
     fire_mask = grid == 2
 
-    next_to_fire_mask = neigbors2fire(fire_mask)
-    trees_next_to_fire_mask = np.logical_and(tree_mask, next_to_fire_mask)
-    elements[trees_next_to_fire_mask] = 2
+    next_to_fire_counts = neigbors2fire(fire_mask)
+    trees_next_to_fire_mask = np.logical_and(tree_mask, next_to_fire_counts > 0)
+    next_to_fire_counts[~trees_next_to_fire_mask] = 0
+
+    fire_prob = next_to_fire_counts / (2 * grid.ndim) # normalize to [0,1]
+    # generate uniformly distributed random values for each tree with at least one fire next to it
+    random_vals = np.random.rand(*fire_prob.shape)
+    # based on the prob and random value decide wether the tree starts burning
+    becomes_fire_mask = random_vals < fire_prob
+
+
+    elements[becomes_fire_mask] = 2
     
     elements[fire_mask] = 0
 
