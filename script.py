@@ -60,35 +60,95 @@ def get_input(prompt, expected_type, default_value):
             print(f"Invalid input. Please enter a value of type {expected_type.__name__}.")
 
 
+#def promptUser():
+#    """
+#    Prompt the user for simulation parameters and update global variables.
+#    """
+#    global frames, interval, prob_lightning, prob_planting, initial_tree_prob, store_file, file_name, custom_seed, seed, simple_model, skew
+#
+#    if get_input('Custom parameters? (0/1)', int, 0):
+#            
+#        frames = get_input("Number of frames", int, frames)
+#        interval = get_input("Frame interval", int, interval)
+#        prob_lightning = get_input("Probability of lightning", float, prob_lightning)
+#        prob_planting = get_input("Enter the probability of planting", float, prob_planting)
+#        initial_tree_prob = get_input("Initial tree probability", float, initial_tree_prob)
+#        
+#        simple_model = bool(get_input('Simple model? (0/1)', int, simple_model))
+#        if simple_model:
+#            skew = 1.0
+#        else:
+#            skew = get_input("Skew on likelihood of trees catching fire, ~drought [0, 1]", float, skew)
+#
+#        store_file = bool(get_input('Store output? (0/1)', int, store_file))
+#        if store_file:
+#            file_name = get_input("File name", str, file_name)
+#        custom_seed = bool(get_input('Custom seed? (0/1)', int, custom_seed))
+#        if custom_seed:
+#            seed = get_input("Custom seed", int, seed)
+#            
+#    printState()
+
+
 def promptUser():
     """
     Prompt the user for simulation parameters and update global variables.
     """
-    global frames, interval, prob_lightning, prob_planting, initial_tree_prob, store_file, file_name, custom_seed, seed, simple_model, skew
+    global dims, frames, interval, prob_lightning, prob_planting, initial_tree_prob, store_file, file_name, custom_seed, seed, simple_model, skew
 
-    if get_input('Custom parameters? (0/1)', int, 0):
-            
-        frames = get_input("Number of frames", int, frames)
-        interval = get_input("Frame interval", int, interval)
-        prob_lightning = get_input("Probability of lightning", float, prob_lightning)
-        prob_planting = get_input("Enter the probability of planting", float, prob_planting)
-        initial_tree_prob = get_input("Initial tree probability", float, initial_tree_prob)
+    parameters = [
+        ("Dimensions", dims, tuple),
+        ("Number of frames", frames, int),
+        ("Frame interval", interval, int),
+        ("Probability of lightning", prob_lightning, float),
+        ("Probability of planting", prob_planting, float),
+        ("Initial tree probability", initial_tree_prob, float),
+        ("Simple model", simple_model, bool),
+        ("Skew", skew, float),
+        ("Store output", store_file, bool),
+        ("File name", file_name, str),
+        ("Custom seed", custom_seed, bool),
+        ("Seed value", seed, int)
+    ]
+
+    while True:
+        print("\nCurrent parameter values:")
+        for i, (name, value, _) in enumerate(parameters, 1):
+            print(f"{i}. {name}: {value}")
         
-        simple_model = bool(get_input('Simple model? (0/1)', int, simple_model))
-        if simple_model:
-            skew = 1.0
-        else:
-            skew = get_input("Skew on likelihood of trees catching fire, ~drought [0, 1]", float, skew)
-
-        store_file = bool(get_input('Store output? (0/1)', int, store_file))
-        if store_file:
-            file_name = get_input("File name", str, file_name)
-        custom_seed = bool(get_input('Custom seed? (0/1)', int, custom_seed))
-        if custom_seed:
-            seed = get_input("Custom seed", int, seed)
+        print("\nEnter the number of the parameter you want to change (0 to finish):")
+        choice = get_input("Your choice", int, 0)
+        
+        if choice == 0:
+            break
+        elif 1 <= choice <= len(parameters):
+            name, current_value, param_type = parameters[choice - 1]
+            if name == "Dimensions":
+                new_value = tuple(get_input(f"Enter new {name} (width,height)", str, current_value).split(','))
+                new_value = tuple(map(int, new_value))
+            elif param_type == bool:
+                new_value = bool(get_input(f"Enter new {name} (0/1)", int, int(current_value)))
+            else:
+                new_value = get_input(f"Enter new {name}", param_type, current_value)
             
-    printState()
+            parameters[choice - 1] = (name, new_value, param_type)
+        else:
+            print("Invalid choice. Please try again.")
 
+    # Update global variables with new values
+    for name, value, _ in parameters:
+        if name == "Dimensions":
+            globals()['dims'] = value
+        else:
+            globals()[name.lower().replace(" ", "_")] = value
+
+    # Handle dependent parameters
+    if simple_model:
+        skew = 1.0
+    if not store_file:
+        file_name = 'model.gif'
+    if not custom_seed:
+        seed = 137
 
 def printState():
     """
